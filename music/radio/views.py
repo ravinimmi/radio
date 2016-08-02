@@ -1,15 +1,51 @@
 from django.http import HttpResponse, JsonResponse
+from django.db.models import Count
 from .models import Track, Playlist, Tag
 
 
 def index(request):
     return HttpResponse("Server is running.")
 
-# todo
+
 def search(request):
     tags = request.GET.getlist('tags')
-    response = {}
+    tag_objects = Tag.objects.filter(title__in=tags)
+
+    playlist_objects = playlists_containing_tags(tag_objects)
+    playlists = order_playlists_by_relevance(list(playlist_objects.values()))
+
+    tags = tags_in_playlists(playlist_objects)
+
+    response = {'playlists': playlists,
+                'tags': tags
+                }
     return JsonResponse(response)
+
+
+def playlists_containing_tags(tag_objects):
+    playlist_objects = Playlist.objects.all()
+    for tag_object in tag_objects:
+        playlist_objects = playlist_objects.filter(tag=tag_object)
+    return playlist_objects
+
+
+def tags_in_playlists(playlist_objects):
+    tag_objects = Tag.objects.filter(playlist__in=playlist_objects).\
+        annotate(count=Count('id')).order_by('-count').values()
+    tags = list(tag_objects)
+    return tags
+
+
+def order_playlists_by_relevance(playlists):
+    play_count_weight = 1
+    likes_count_weight = 2
+
+    def score(playlist):
+        return play_count_weight * playlist['play_count']
+        + likes_count_weight * playlist['likes_count']
+
+    playlists.sort(key=score, reverse=True)
+    return playlists
 
 
 def increment_play_count(request):
@@ -38,7 +74,7 @@ def increment_likes_count(request):
     return JsonResponse(response)
 
 
-# Content creation
+# Content insertion
 def create_track(request):
     title = request.GET.get('title')
     try:
@@ -107,8 +143,7 @@ def list_playlists(request):
     return JsonResponse(response)
 
 
-def view_playlist(request):
-    playlist_id = request.GET.get('playlist_id')
+def view_playlist(request, playlist_id):
     try:
         playlist = Playlist.objects.get(id=playlist_id)
         tracks = playlist.track_set.all().values()
@@ -161,8 +196,7 @@ def delete_tag(request):
     return JsonResponse(response)
 
 
-def view_tag(request):
-    tag_id = request.GET.get('tag_id')
+def view_tag(request, tag_id):
     try:
         tag = Tag.objects.get(id=tag_id)
         playlists = tag.playlist.all().values()
