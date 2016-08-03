@@ -30,7 +30,7 @@ def playlists_containing_tags(tag_objects):
 
 
 def tags_in_playlists(playlist_objects):
-    tag_objects = Tag.objects.filter(playlist__in=playlist_objects).\
+    tag_objects = Tag.objects.filter(playlists__in=playlist_objects).\
         annotate(count=Count('id')).order_by('-count').values()
     tags = list(tag_objects)
     return tags
@@ -164,7 +164,7 @@ def add_track_to_playlist(request):
     try:
         track = Track.objects.get(id=track_id)
         playlist = Playlist.objects.get(id=playlist_id)
-        track.playlist.add(playlist)
+        track.playlists.add(playlist)
         response = {'success': True}
     except Exception as e:
         print("Error occured " + str(e))
@@ -199,7 +199,7 @@ def delete_tag(request):
 def view_tag(request, tag_id):
     try:
         tag = Tag.objects.get(id=tag_id)
-        playlists = tag.playlist.all().values()
+        playlists = tag.playlists.all().values()
         response = {'success': True, 'playlists': list(playlists)}
     except Exception as e:
         print("Error occured " + str(e))
@@ -223,7 +223,7 @@ def add_tag_to_playlist(request):
     try:
         tag = Tag.objects.get(id=tag_id)
         playlist = Playlist.objects.get(id=playlist_id)
-        tag.playlist.add(playlist)
+        tag.playlists.add(playlist)
         response = {'success': True}
     except Exception as e:
         print("Error occured " + str(e))

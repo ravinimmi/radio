@@ -9,9 +9,9 @@ class Playlist(models.Model):
 
 class Track(models.Model):
     title = models.CharField(max_length=200, unique=True)
-    playlist = models.ManyToManyField(Playlist)
+    playlists = models.ManyToManyField(Playlist)
 
 
 class Tag(models.Model):
     title = models.CharField(max_length=100, unique=True)
-    playlist = models.ManyToManyField(Playlist)
+    playlists = models.ManyToManyField(Playlist)
