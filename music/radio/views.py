@@ -1,5 +1,6 @@
 from django.http import HttpResponse, JsonResponse
 from django.db.models import Count
+from django.db import IntegrityError
 from .models import Track, Playlist, Tag
 
 
@@ -49,97 +50,90 @@ def order_playlists_by_relevance(playlists):
 
 
 def increment_play_count(request):
-    playlist_id = request.GET.get('playlist_id')
+    playlist_id = request.POST.get('playlist_id')
     try:
         playlist = Playlist.objects.get(id=playlist_id)
         playlist.play_count = playlist.play_count + 1
         playlist.save()
-        response = {'success': True}
-    except Exception as e:
-        print("Error occured " + str(e))
-        response = {'success': False}
-    return JsonResponse(response)
+        response = JsonResponse({'success': True})
+    except Playlist.DoesNotExist:
+        response = JsonResponse({'success': False,
+                                 'error': "Playlist does not exist."},
+                                status=404)
+    return response
 
 
 def increment_likes_count(request):
-    playlist_id = request.GET.get('playlist_id')
+    playlist_id = request.POST.get('playlist_id')
     try:
         playlist = Playlist.objects.get(id=playlist_id)
         playlist.likes_count = playlist.likes_count + 1
         playlist.save()
-        response = {'success': True}
-    except Exception as e:
-        print("Error occured " + str(e))
-        response = {'success': False}
-    return JsonResponse(response)
+        response = JsonResponse({'success': True})
+    except Playlist.DoesNotExist:
+        response = JsonResponse({'success': False,
+                                 'error': "Playlist does not exist."},
+                                status=404)
+    return response
 
 
 # Content insertion
 def create_track(request):
-    title = request.GET.get('title')
+    title = request.POST.get('title')
     try:
-        track = Track(title=title)
-        track.save()
-        response = {'success': True}
-    except Exception as e:
-        print("Error occured " + str(e))
-        response = {'success': False}
-    return JsonResponse(response)
+        Track(title=title).save()
+        response = JsonResponse({'success': True})
+    except IntegrityError:
+        response = JsonResponse({'success': False,
+                                 'error': "Track already exists exist."},
+                                status=409)
+    return response
 
 
 def delete_track(request):
-    title = request.GET.get('title')
+    title = request.POST.get('title')
     try:
-        track = Track.objects.filter(title=title)
-        track.delete()
-        response = {'success': True}
-    except Exception as e:
-        print("Error occured " + str(e))
-        response = {'success': False}
-    return JsonResponse(response)
+        Track.objects.get(title=title).delete()
+        response = JsonResponse({'success': True})
+    except Track.DoesNotExist:
+        response = JsonResponse({'success': False,
+                                 'error': "Track does not exist."}, status=404)
+    return response
 
 
 def list_tracks(request):
-    try:
-        tracks = Track.objects.all().values()
-        response = {'success': True, 'tracks': list(tracks)}
-    except Exception as e:
-        print("Error occured " + str(e))
-        response = {'success': False}
+    tracks = Track.objects.all().values()
+    response = {'success': True, 'tracks': list(tracks)}
     return JsonResponse(response)
 
 
 def create_playlist(request):
-    title = request.GET.get('title')
+    title = request.POST.get('title')
     try:
-        playlist = Playlist(title=title)
-        playlist.save()
-        response = {'success': True}
-    except Exception as e:
-        print("Error occured " + str(e))
-        response = {'success': False}
-    return JsonResponse(response)
+        Playlist(title=title).save()
+        response = JsonResponse({'success': True})
+    except IntegrityError:
+        response = JsonResponse({'success': False,
+                                 'error': "Playlist already exists exist."},
+                                status=409)
+    return response
 
 
 def delete_playlist(request):
-    title = request.GET.get('title')
+    title = request.POST.get('title')
     try:
-        playlist = Playlist.objects.filter(title=title)
-        playlist.delete()
-        response = {'success': True}
-    except Exception as e:
-        print("Error occured " + str(e))
-        response = {'success': False}
-    return JsonResponse(response)
+        Playlist.objects.get(title=title).delete()
+        response = JsonResponse({'success': True})
+    except Playlist.DoesNotExist:
+        response = JsonResponse({'success': False,
+                                 'error': "Playlist does not exist."},
+                                status=404)
+    return response
 
 
 def list_playlists(request):
-    try:
-        playlists = Playlist.objects.all().values()
-        response = {'success': True, 'playlists': list(playlists)}
-    except Exception as e:
-        print("Error occured " + str(e))
-        response = {'success': False}
+    playlists = Playlist.objects.all().values()
+    response = {'success': True, 'playlists': list(playlists)}
     return JsonResponse(response)
 
 
@@ -147,85 +141,92 @@ def view_playlist(request, playlist_id):
     try:
         playlist = Playlist.objects.get(id=playlist_id)
         tracks = playlist.track_set.all().values()
-        response = {'success': True,
-                    'tracks': list(tracks),
-                    'play_count': int(playlist.play_count),
-                    'likes_count': int(playlist.likes_count)
-                    }
-    except Exception as e:
-        print("Error occured " + str(e))
-        response = {'success': False}
-    return JsonResponse(response)
+        response = JsonResponse({'success': True,
+                                 'tracks': list(tracks),
+                                 'play_count': playlist.play_count,
+                                 'likes_count': playlist.likes_count
+                                 })
+    except Playlist.DoesNotExist:
+        response = JsonResponse({'success': False,
+                                 'error': "Playlist does not exist."},
+                                status=404)
+    return response
 
 
 def add_track_to_playlist(request):
-    track_id = request.GET.get('track_id')
-    playlist_id = request.GET.get('playlist_id')
+    track_id = request.POST.get('track_id')
+    playlist_id = request.POST.get('playlist_id')
     try:
         track = Track.objects.get(id=track_id)
         playlist = Playlist.objects.get(id=playlist_id)
         track.playlists.add(playlist)
-        response = {'success': True}
-    except Exception as e:
-        print("Error occured " + str(e))
-        response = {'success': False}
-    return JsonResponse(response)
+        response = JsonResponse({'success': True})
+    except Track.DoesNotExist:
+        response = JsonResponse({'success': False,
+                                 'error': "Track does not exist."},
+                                status=404)
+    except Playlist.DoesNotExist:
+        response = JsonResponse({'success': False,
+                                 'error': "Playlist does not exist."},
+                                status=404)
+    return response
 
 
 def create_tag(request):
-    title = request.GET.get('title')
+    title = request.POST.get('title')
     try:
-        tag = Tag(title=title)
-        tag.save()
-        response = {'success': True}
-    except Exception as e:
-        print("Error occured " + str(e))
-        response = {'success': False}
-    return JsonResponse(response)
+        Tag(title=title).save()
+        response = JsonResponse({'success': True})
+    except IntegrityError:
+        response = JsonResponse({'success': False,
+                                 'error': "Tag already exists exist."},
+                                status=409)
+    return response
 
 
 def delete_tag(request):
-    title = request.GET.get('title')
+    title = request.POST.get('title')
     try:
-        tag = Tag.objects.filter(title=title)
-        tag.delete()
-        response = {'success': True}
-    except Exception as e:
-        print("Error occured " + str(e))
-        response = {'success': False}
-    return JsonResponse(response)
+        Tag.objects.get(title=title).delete()
+        response = JsonResponse({'success': True})
+    except Tag.DoesNotExist:
+        response = JsonResponse({'success': False,
+                                 'error': "Tag does not exist."}, status=404)
+    return response
 
 
 def view_tag(request, tag_id):
     try:
         tag = Tag.objects.get(id=tag_id)
         playlists = tag.playlists.all().values()
-        response = {'success': True, 'playlists': list(playlists)}
-    except Exception as e:
-        print("Error occured " + str(e))
-        response = {'success': False}
-    return JsonResponse(response)
+        response = JsonResponse({'success': True,
+                                 'playlists': list(playlists)})
+    except Tag.DoesNotExist:
+        response = JsonResponse({'success': False,
+                                 'error': "Tag does not exist."}, status=404)
+    return response
 
 
 def list_tags(request):
-    try:
-        tags = Tag.objects.all().values()
-        response = {'success': True, 'tags': list(tags)}
-    except Exception as e:
-        print("Error occured " + str(e))
-        response = {'success': False}
+    tags = Tag.objects.all().values()
+    response = {'success': True, 'tags': list(tags)}
     return JsonResponse(response)
 
 
 def add_tag_to_playlist(request):
-    tag_id = request.GET.get('tag_id')
-    playlist_id = request.GET.get('playlist_id')
+    tag_id = request.POST.get('tag_id')
+    playlist_id = request.POST.get('playlist_id')
     try:
         tag = Tag.objects.get(id=tag_id)
         playlist = Playlist.objects.get(id=playlist_id)
         tag.playlists.add(playlist)
-        response = {'success': True}
-    except Exception as e:
-        print("Error occured " + str(e))
-        response = {'success': False}
-    return JsonResponse(response)
+        response = JsonResponse({'success': True})
+    except Tag.DoesNotExist:
+        response = JsonResponse({'success': False,
+                                 'error': "Tag does not exist."},
+                                status=404)
+    except Playlist.DoesNotExist:
+        response = JsonResponse({'success': False,
+                                 'error': "Playlist does not exist."},
+                                status=404)
+    return response
